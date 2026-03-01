@@ -59,6 +59,33 @@ defmodule NasaFuelCalculator.Fuel do
   end
 
   @doc """
+  Returns per-step fuel costs as a list of `{action, planet, fuel}` tuples.
+
+  ## Examples
+
+      iex> NasaFuelCalculator.Fuel.calculate_breakdown(28801, [{:launch, :earth}, {:land, :moon}])
+      [{:launch, :earth, 20_845}, {:land, :moon, 1_535}]
+
+      iex> NasaFuelCalculator.Fuel.calculate_breakdown(28801, [])
+      []
+  """
+  @spec calculate_breakdown(non_neg_integer(), [flight_step()]) ::
+          [{action(), planet(), non_neg_integer()}]
+  def calculate_breakdown(_mass, []), do: []
+
+  def calculate_breakdown(mass, flight_path) do
+    {breakdown, _final_mass} =
+      flight_path
+      |> Enum.reverse()
+      |> Enum.reduce({[], mass}, fn {action, planet}, {acc, current_mass} ->
+        step_fuel = calculate_step(action, planet, current_mass)
+        {[{action, planet, step_fuel} | acc], current_mass + step_fuel}
+      end)
+
+    breakdown
+  end
+
+  @doc """
   Calculates fuel for a single flight step, including recursive fuel-for-fuel.
 
   ## Examples
