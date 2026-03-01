@@ -14,11 +14,13 @@ defmodule NasaFuelCalculatorWeb.FuelCalculatorLiveTest do
       assert has_element?(view, "input[name=mass]")
     end
 
-    test "starts with two default flight steps", %{conn: conn} do
-      {:ok, _view, html} = live(conn, ~p"/")
+    test "starts with Apollo 11 preset as default", %{conn: conn} do
+      {:ok, view, html} = live(conn, ~p"/")
 
-      assert html =~ "Launch"
-      assert html =~ "Land"
+      assert html =~ "Total Fuel Required"
+      assert html =~ "51,898"
+      assert has_element?(view, "input[name=mass][value='28801']")
+      assert has_element?(view, "span.badge", "4")
     end
   end
 
@@ -76,20 +78,20 @@ defmodule NasaFuelCalculatorWeb.FuelCalculatorLiveTest do
     test "adds a new step to the flight path", %{conn: conn} do
       {:ok, view, _html} = live(conn, ~p"/")
 
-      assert view |> has_element?("span.badge", "2")
-      refute view |> has_element?("span.badge", "3")
+      assert view |> has_element?("span.badge", "4")
+      refute view |> has_element?("span.badge", "5")
 
       view
       |> element("button", "Add Step")
       |> render_click()
 
-      assert view |> has_element?("span.badge", "3")
+      assert view |> has_element?("span.badge", "5")
     end
 
     test "removes a step from the flight path", %{conn: conn} do
       {:ok, view, html} = live(conn, ~p"/")
 
-      assert view |> has_element?("span.badge", "2")
+      assert view |> has_element?("span.badge", "4")
 
       [id | _] =
         Regex.scan(~r/name="step_id" value="([^"]+)"/, html, capture: :all_but_first)
@@ -97,7 +99,7 @@ defmodule NasaFuelCalculatorWeb.FuelCalculatorLiveTest do
 
       render_click(view, "remove_step", %{"id" => id})
 
-      refute view |> has_element?("span.badge", "2")
+      refute view |> has_element?("span.badge", "4")
     end
 
     test "updates step action", %{conn: conn} do
@@ -167,6 +169,63 @@ defmodule NasaFuelCalculatorWeb.FuelCalculatorLiveTest do
     end
   end
 
+  describe "preset missions" do
+    test "loads Apollo 11 preset", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/")
+
+      html = render_click(view, "load_preset", %{"preset" => "apollo_11"})
+
+      assert html =~ "51,898"
+      assert html =~ "Total Fuel Required"
+    end
+
+    test "loads Mars Mission preset", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/")
+
+      html = render_click(view, "load_preset", %{"preset" => "mars_mission"})
+
+      assert html =~ "33,388"
+    end
+
+    test "loads Passenger Ship preset", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/")
+
+      html = render_click(view, "load_preset", %{"preset" => "passenger_ship"})
+
+      assert html =~ "212,161"
+    end
+
+    test "preset buttons are visible", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/")
+
+      assert has_element?(view, "button", "Apollo 11")
+      assert has_element?(view, "button", "Mars Mission")
+      assert has_element?(view, "button", "Passenger Ship")
+    end
+  end
+
+  describe "fuel breakdown" do
+    test "shows fuel breakdown table when mass is set", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/")
+
+      html = render_click(view, "load_preset", %{"preset" => "apollo_11"})
+
+      assert html =~ "Fuel Breakdown"
+      assert html =~ "32,988"
+      assert html =~ "2,462"
+      assert html =~ "3,001"
+      assert html =~ "13,447"
+    end
+
+    test "shows journey visualization when mass is set", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/")
+
+      html = render_click(view, "load_preset", %{"preset" => "apollo_11"})
+
+      assert html =~ "Journey Visualization"
+    end
+  end
+
   describe "mission scenarios" do
     test "Apollo 11: full path produces 51,898 kg of fuel", %{conn: conn} do
       {:ok, view, _html} = live(conn, ~p"/")
@@ -216,9 +275,10 @@ defmodule NasaFuelCalculatorWeb.FuelCalculatorLiveTest do
   defp setup_flight_path(view, mass, steps) do
     view |> element("input[name=mass]") |> render_keyup(%{"value" => mass})
 
-    extra_steps = length(steps) - 2
+    default_steps = 4
+    extra_steps = length(steps) - default_steps
 
-    for _ <- 1..extra_steps do
+    for _ <- 1..extra_steps//1 do
       view |> element("button", "Add Step") |> render_click()
     end
 

@@ -75,6 +75,35 @@ defmodule NasaFuelCalculator.FuelTest do
     end
   end
 
+  describe "calculate_breakdown/2" do
+    test "returns per-step fuel for Apollo 11 path" do
+      path = [{:launch, :earth}, {:land, :moon}, {:launch, :moon}, {:land, :earth}]
+      breakdown = Fuel.calculate_breakdown(28_801, path)
+
+      assert breakdown == [
+               {:launch, :earth, 32_988},
+               {:land, :moon, 2_462},
+               {:launch, :moon, 3_001},
+               {:land, :earth, 13_447}
+             ]
+    end
+
+    test "per-step fuel sums to total from calculate/2" do
+      path = [{:launch, :earth}, {:land, :moon}, {:launch, :moon}, {:land, :earth}]
+
+      total = Fuel.calculate(28_801, path)
+      breakdown = Fuel.calculate_breakdown(28_801, path)
+
+      sum = Enum.reduce(breakdown, 0, fn {_action, _planet, fuel}, acc -> acc + fuel end)
+
+      assert sum == total
+    end
+
+    test "returns empty list for empty flight path" do
+      assert Fuel.calculate_breakdown(28_801, []) == []
+    end
+  end
+
   describe "calculate_step/3 edge cases" do
     test "returns 0 when mass is too small to produce fuel" do
       assert Fuel.calculate_step(:land, :moon, 1) == 0
