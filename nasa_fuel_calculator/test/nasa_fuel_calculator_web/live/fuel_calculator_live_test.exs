@@ -171,30 +171,13 @@ defmodule NasaFuelCalculatorWeb.FuelCalculatorLiveTest do
     test "Apollo 11: full path produces 51,898 kg of fuel", %{conn: conn} do
       {:ok, view, _html} = live(conn, ~p"/")
 
-      view |> element("input[name=mass]") |> render_keyup(%{"value" => "28801"})
-
-      # Add steps 3 and 4 (defaults to Launch Earth)
-      view |> element("button", "Add Step") |> render_click()
-      view |> element("button", "Add Step") |> render_click()
-
-      step_ids = extract_step_ids(render(view))
-
-      # Step 1: Launch Earth (already default)
-      # Step 2: Land Moon (already default)
-      # Step 3: Launch Moon
-      render_change(view, "update_step", %{
-        "step_id" => Enum.at(step_ids, 2),
-        "action" => "launch",
-        "planet" => "moon"
-      })
-
-      # Step 4: Land Earth
       html =
-        render_change(view, "update_step", %{
-          "step_id" => Enum.at(step_ids, 3),
-          "action" => "land",
-          "planet" => "earth"
-        })
+        setup_flight_path(view, "28801", [
+          {"launch", "earth"},
+          {"land", "moon"},
+          {"launch", "moon"},
+          {"land", "earth"}
+        ])
 
       assert html =~ "51,898"
     end
@@ -202,34 +185,13 @@ defmodule NasaFuelCalculatorWeb.FuelCalculatorLiveTest do
     test "Mars mission: full path produces 33,388 kg of fuel", %{conn: conn} do
       {:ok, view, _html} = live(conn, ~p"/")
 
-      view |> element("input[name=mass]") |> render_keyup(%{"value" => "14606"})
-
-      view |> element("button", "Add Step") |> render_click()
-      view |> element("button", "Add Step") |> render_click()
-
-      step_ids = extract_step_ids(render(view))
-
-      # Step 2: Land Mars
-      render_change(view, "update_step", %{
-        "step_id" => Enum.at(step_ids, 1),
-        "action" => "land",
-        "planet" => "mars"
-      })
-
-      # Step 3: Launch Mars
-      render_change(view, "update_step", %{
-        "step_id" => Enum.at(step_ids, 2),
-        "action" => "launch",
-        "planet" => "mars"
-      })
-
-      # Step 4: Land Earth
       html =
-        render_change(view, "update_step", %{
-          "step_id" => Enum.at(step_ids, 3),
-          "action" => "land",
-          "planet" => "earth"
-        })
+        setup_flight_path(view, "14606", [
+          {"launch", "earth"},
+          {"land", "mars"},
+          {"launch", "mars"},
+          {"land", "earth"}
+        ])
 
       assert html =~ "33,388"
     end
@@ -237,47 +199,40 @@ defmodule NasaFuelCalculatorWeb.FuelCalculatorLiveTest do
     test "Passenger ship: full path produces 212,161 kg of fuel", %{conn: conn} do
       {:ok, view, _html} = live(conn, ~p"/")
 
-      view |> element("input[name=mass]") |> render_keyup(%{"value" => "75432"})
-
-      # Add steps 3 through 6
-      view |> element("button", "Add Step") |> render_click()
-      view |> element("button", "Add Step") |> render_click()
-      view |> element("button", "Add Step") |> render_click()
-      view |> element("button", "Add Step") |> render_click()
-
-      step_ids = extract_step_ids(render(view))
-
-      # Step 3: Launch Moon
-      render_change(view, "update_step", %{
-        "step_id" => Enum.at(step_ids, 2),
-        "action" => "launch",
-        "planet" => "moon"
-      })
-
-      # Step 4: Land Mars
-      render_change(view, "update_step", %{
-        "step_id" => Enum.at(step_ids, 3),
-        "action" => "land",
-        "planet" => "mars"
-      })
-
-      # Step 5: Launch Mars
-      render_change(view, "update_step", %{
-        "step_id" => Enum.at(step_ids, 4),
-        "action" => "launch",
-        "planet" => "mars"
-      })
-
-      # Step 6: Land Earth
       html =
-        render_change(view, "update_step", %{
-          "step_id" => Enum.at(step_ids, 5),
-          "action" => "land",
-          "planet" => "earth"
-        })
+        setup_flight_path(view, "75432", [
+          {"launch", "earth"},
+          {"land", "moon"},
+          {"launch", "moon"},
+          {"land", "mars"},
+          {"launch", "mars"},
+          {"land", "earth"}
+        ])
 
       assert html =~ "212,161"
     end
+  end
+
+  defp setup_flight_path(view, mass, steps) do
+    view |> element("input[name=mass]") |> render_keyup(%{"value" => mass})
+
+    extra_steps = length(steps) - 2
+
+    for _ <- 1..extra_steps do
+      view |> element("button", "Add Step") |> render_click()
+    end
+
+    step_ids = extract_step_ids(render(view))
+
+    steps
+    |> Enum.with_index()
+    |> Enum.reduce(nil, fn {{action, planet}, index}, _acc ->
+      render_change(view, "update_step", %{
+        "step_id" => Enum.at(step_ids, index),
+        "action" => action,
+        "planet" => planet
+      })
+    end)
   end
 
   defp extract_step_ids(html) do
