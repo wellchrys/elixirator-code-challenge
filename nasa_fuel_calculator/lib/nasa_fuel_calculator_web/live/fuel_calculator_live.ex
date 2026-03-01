@@ -1,4 +1,8 @@
 defmodule NasaFuelCalculatorWeb.FuelCalculatorLive do
+  @moduledoc """
+  LiveView for calculating fuel required for interplanetary space missions.
+  """
+
   use NasaFuelCalculatorWeb, :live_view
 
   alias NasaFuelCalculator.Fuel
@@ -144,23 +148,20 @@ defmodule NasaFuelCalculatorWeb.FuelCalculatorLive do
         %{"step_id" => id, "action" => action, "planet" => planet},
         socket
       ) do
-    flight_path =
-      Enum.map(socket.assigns.flight_path, fn step ->
-        case step.id == id do
-          true ->
-            %{
-              step
-              | action: String.to_existing_atom(action),
-                planet: String.to_existing_atom(planet)
-            }
-
-          false ->
-            step
-        end
-      end)
+    flight_path = update_step_in_list(socket.assigns.flight_path, id, action, planet)
 
     {:noreply, socket |> assign(flight_path: flight_path) |> recalculate()}
   end
+
+  defp update_step_in_list(steps, id, action, planet) do
+    Enum.map(steps, &do_update_step(&1, id, action, planet))
+  end
+
+  defp do_update_step(%{id: id} = step, id, action, planet) do
+    %{step | action: String.to_existing_atom(action), planet: String.to_existing_atom(planet)}
+  end
+
+  defp do_update_step(step, _id, _action, _planet), do: step
 
   defp recalculate(socket) do
     case parse_mass(socket.assigns.mass) do
@@ -192,7 +193,7 @@ defmodule NasaFuelCalculatorWeb.FuelCalculatorLive do
     %{id: generate_id(), action: action, planet: planet}
   end
 
-  defp generate_id, do: :crypto.strong_rand_bytes(8) |> Base.encode16(case: :lower)
+  defp generate_id, do: [:positive] |> System.unique_integer() |> Integer.to_string()
 
   defp format_number(number) do
     number

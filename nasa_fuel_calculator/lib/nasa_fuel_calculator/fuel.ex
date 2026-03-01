@@ -48,13 +48,14 @@ defmodule NasaFuelCalculator.Fuel do
   def calculate(_mass, []), do: 0
 
   def calculate(mass, flight_path) do
-    flight_path
-    |> Enum.reverse()
-    |> Enum.reduce(mass, fn {action, planet}, total_mass ->
-      step_fuel = calculate_step(action, planet, total_mass)
-      total_mass + step_fuel
-    end)
-    |> Kernel.-(mass)
+    total_mass =
+      flight_path
+      |> Enum.reverse()
+      |> Enum.reduce(mass, fn {action, planet}, acc ->
+        acc + calculate_step(action, planet, acc)
+      end)
+
+    total_mass - mass
   end
 
   @doc """
@@ -75,12 +76,15 @@ defmodule NasaFuelCalculator.Fuel do
   defp fuel_for_fuel(_action, _gravity, fuel) when fuel <= 0, do: 0
 
   defp fuel_for_fuel(action, gravity, fuel) do
-    additional = base_fuel(action, gravity, fuel)
+    action
+    |> base_fuel(gravity, fuel)
+    |> accumulate_fuel(action, gravity)
+  end
 
-    case additional > 0 do
-      true -> additional + fuel_for_fuel(action, gravity, additional)
-      false -> 0
-    end
+  defp accumulate_fuel(additional, _action, _gravity) when additional <= 0, do: 0
+
+  defp accumulate_fuel(additional, action, gravity) do
+    additional + fuel_for_fuel(action, gravity, additional)
   end
 
   defp base_fuel(:launch, gravity, mass), do: floor(mass * gravity * 0.042 - 33)
